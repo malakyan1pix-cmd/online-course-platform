@@ -1,38 +1,23 @@
-# Online Course Platform
+# Online Course Platform REST API
 
-REST API backend for an online course platform built with Node.js, Express, Sequelize, PostgreSQL and JWT authentication.
+REST API backend for an online course platform built with Node.js, Express and Sequelize.
+
+The platform supports three types of users: **admin, instructor and student**.
+
+* Instructors can create and manage their own courses and lessons.
+* Students can browse published courses, enroll in courses and track their progress.
+* Admins can manage users, courses, lessons and enrollments.
 
 ## Technologies
 
 * Node.js
 * Express.js
+* Sequelize
 * PostgreSQL
-* Sequelize ORM
 * JWT
 * bcryptjs
 * dotenv
 * nodemon
-
-## Features
-
-* User registration and login
-* JWT authentication
-* Role-based authorization
-* Three user roles:
-
-  * `admin`
-  * `instructor`
-  * `student`
-* Course management
-* Lesson management
-* Course enrollment
-* Enrollment progress tracking
-* Course completion status
-* Ownership checks
-* Sequelize associations and JOIN queries
-* Centralized error handling
-* Database auto-creation and synchronization
-* Seed data
 
 ## Project Structure
 
@@ -40,15 +25,14 @@ REST API backend for an online course platform built with Node.js, Express, Sequ
 src/
 ├── config/
 ├── constants/
-├── controllers/
-├── middlewares/
 ├── models/
 ├── routes/
+├── controllers/
 ├── services/
+├── middlewares/
 ├── utils/
 ├── app.js
-├── server.js
-└── seed.js
+└── server.js
 ```
 
 The project follows a layered architecture:
@@ -64,8 +48,21 @@ Service
   ↓
 Model
   ↓
-PostgreSQL
+Database
 ```
+
+### Responsibilities
+
+* **Routes** — define URLs and HTTP methods.
+* **Middlewares** — authentication, authorization and validation.
+* **Controllers** — receive requests and return responses.
+* **Services** — contain business logic and database queries.
+* **Models** — define database tables, validations and relationships.
+* **Config** — database and environment configuration.
+* **Constants** — roles and error messages.
+* **Utils** — reusable helpers such as JWT, AppError and asyncHandler.
+
+Controllers do not contain Sequelize queries. Business logic is handled in services.
 
 ## Installation
 
@@ -75,7 +72,7 @@ Clone the repository and install dependencies:
 npm install
 ```
 
-Create a `.env` file based on `.env.example`.
+Create a `.env` file in the project root.
 
 Example:
 
@@ -86,64 +83,86 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=online_course_platform
 DB_USER=postgres
-DB_PASSWORD=your_postgres_password
+DB_PASSWORD=your_password
 DB_DIALECT=postgres
 
-JWT_SECRET=your_jwt_secret
+JWT_SECRET=your_secret
 JWT_EXPIRES_IN=2h
 ```
 
 ## Running the Project
 
-Start the development server:
+Development mode:
 
 ```bash
 npm run dev
 ```
 
-The API will be available at:
-
-```text
-http://localhost:4000
-```
-
-API base URL:
-
-```text
-http://localhost:4000/api
-```
-
-The application automatically:
-
-1. Checks whether the PostgreSQL database exists.
-2. Creates the database if necessary.
-3. Connects to PostgreSQL.
-4. Synchronizes Sequelize models.
-5. Starts the Express server.
-
-### Why is `sync({ force: true })` dangerous?
-
-`sequelize.sync({ force: true })` drops existing tables before recreating them.
-This means all existing data in the database can be permanently deleted.
-Therefore, it should never be used on a production database.
-
-## Seed Data
-
-To create sample users, courses and lessons:
+Production/start mode:
 
 ```bash
-npm run seed
+npm start
 ```
 
-Seed accounts:
+The server connects to PostgreSQL, synchronizes the models and starts only if the database connection is successful.
 
-| Role       | Email                    | Password |
-| ---------- | ------------------------ | -------- |
-| Admin      | `admin@example.com`      | `123456` |
-| Instructor | `instructor@example.com` | `123456` |
-| Student    | `student@example.com`    | `123456` |
+## Database
+
+The project uses PostgreSQL and Sequelize.
+
+The main entities are:
+
+* User
+* Course
+* Lesson
+* Enrollment
+
+### Relationships
+
+```text
+User 1 ──── * Course
+Course 1 ── * Lesson
+User * ──── * Course
+          Enrollment
+```
+
+Courses belong to instructors, courses contain lessons, and students enroll in courses through the Enrollment table.
+
+## Authentication and Authorization
+
+The API uses JWT authentication.
+
+There are three roles:
+
+### Admin
+
+Can manage users and all courses, lessons and enrollments.
+
+### Instructor
+
+Can:
+
+* create courses;
+* update and delete their own courses;
+* create, update and delete lessons in their own courses;
+* view students enrolled in their courses.
+
+### Student
+
+Can:
+
+* view published courses;
+* enroll in courses;
+* cancel enrollments;
+* view their enrollments;
+* view lessons of enrolled courses;
+* update learning progress.
+
+Users are registered as `student` by default. Only an admin can change a user's role.
 
 ## API Endpoints
+
+All API routes start with `/api`.
 
 ### Authentication
 
@@ -164,62 +183,61 @@ Seed accounts:
 
 ### Courses
 
-| Method | Endpoint                | Access            |
-| ------ | ----------------------- | ------------------|
-| GET    | `/courses`              | Public            |
-| GET    | `/courses/my`           | Instructor        |
-| GET    | `/courses/:id`          | Public            |
-| POST   | `/courses`              | Instructor/Admin  |
-| PUT    | `/courses/:id`          | Owner/Admin       |
-| DELETE | `/courses/:id`          | Owner/Admin       |
-| GET    | `/courses/:id/students` | Owner/Admin       |
+| Method | Endpoint                | Access             |
+| ------ | ----------------------- | ------------------ |
+| GET    | `/courses`              | Public             |
+| GET    | `/courses/my`           | Instructor         |
+| GET    | `/courses/:id`          | Public             |
+| POST   | `/courses`              | Instructor / Admin |
+| PUT    | `/courses/:id`          | Owner / Admin      |
+| DELETE | `/courses/:id`          | Owner / Admin      |
+| GET    | `/courses/:id/students` | Owner / Admin      |
+
+Courses can be filtered by:
+
+```text
+GET /courses?category=Programming
+GET /courses?level=beginner
+```
 
 ### Lessons
 
 | Method | Endpoint                     | Access                           |
 | ------ | ---------------------------- | -------------------------------- |
 | GET    | `/courses/:courseId/lessons` | Enrolled Student / Owner / Admin |
-| GET    | `/lessons/:id`               | Authorized                       |
+| GET    | `/lessons/:id`               | Enrolled Student / Owner / Admin |
 | POST   | `/courses/:courseId/lessons` | Owner / Admin                    |
 | PUT    | `/lessons/:id`               | Owner / Admin                    |
 | DELETE | `/lessons/:id`               | Owner / Admin                    |
 
 ### Enrollments
 
-| Method | Endpoint                    | Access           |
-| ------ | --------------------------- | ---------------- |
-| POST   | `/enrollments`              | Student          |
-| GET    | `/enrollments/me`           | Student          |
-| PATCH  | `/enrollments/:id/progress` | Enrollment Owner |
-| DELETE | `/enrollments/:id`          | Owner / Admin    |
-| GET    | `/enrollments`              | Admin            |
+| Method | Endpoint                    | Access        |
+| ------ | --------------------------- | ------------- |
+| POST   | `/enrollments`              | Student       |
+| GET    | `/enrollments/me`           | Student       |
+| PATCH  | `/enrollments/:id/progress` | Student       |
+| DELETE | `/enrollments/:id`          | Owner / Admin |
+| GET    | `/enrollments`              | Admin         |
 
 ## Business Rules
 
-* Only published courses can be enrolled in.
+* Registration always creates a student account.
+* Students can enroll only in published courses.
 * A student cannot enroll in the same course twice.
 * An instructor cannot enroll in their own course.
-* Students can access lessons only when enrolled.
-* Course owners and admins can access their course lessons.
+* Instructors can modify only their own courses.
+* Students can access lessons only when they have an active or completed enrollment.
 * Lesson order must be unique within a course.
-* Enrollment progress must be between `0` and `100`.
-* Progress `100` changes enrollment status to `completed`.
-* Cancelled enrollments cannot be updated.
-* Admin cannot change their own role.
-* Admin cannot delete their own account.
-* Unpublished courses are visible to their owner and admins.
+* Progress must be between 0 and 100.
+* When progress reaches 100%, enrollment status becomes `completed`.
+* Cancelled enrollments cannot update progress.
+* An admin cannot delete their own account or change their own role.
+* Unpublished courses are visible only to their owner and admins.
 
 ## Error Handling
 
-The API uses a consistent error response format:
-
-```json
-{
-  "success": false,
-  "statusCode": 409,
-  "message": "You are already enrolled in this course"
-}
-```
+The project uses a global error handler and a custom `AppError` class.
 
 Successful responses use:
 
@@ -230,40 +248,32 @@ Successful responses use:
 }
 ```
 
-## Authentication
+Error responses use:
 
-Protected endpoints require a JWT access token:
-
-```text
-Authorization: Bearer <token>
+```json
+{
+  "success": false,
+  "statusCode": 404,
+  "message": "Course not found"
+}
 ```
 
-Passwords are hashed using `bcryptjs` and are never returned in API responses.
+The API handles validation, duplicate data, foreign key errors and JWT errors centrally.
 
-## Database Relationships
+## Database Synchronization
 
-```text
-User
- ├── Courses (as instructor)
- ├── Enrolled Courses
- │     └── Enrollment
- │
-Course
- ├── Instructor (User)
- ├── Lessons
- └── Students (through Enrollment)
+The server uses Sequelize to synchronize the database models.
 
-Enrollment
- ├── User
- └── Course
-```
+`sync({ force: true })` is dangerous because it drops existing tables before recreating them. This can permanently delete all existing data.
 
-## Postman
+Therefore, `force: true` should never be used on a production database.
 
-A Postman collection is included with the project and contains the API requests for authentication, users, courses, lessons and enrollments.
+## Environment Variables
 
-Import the collection into Postman and configure the JWT token in the Authorization tab for protected requests.
+The `.env` file contains sensitive configuration and must not be committed to GitHub.
+
+The repository contains `.env.example` with the required environment variable names.
 
 ## Author
 
-Individual backend project for Web 2.3.
+Online Course Platform — Final Backend Project
